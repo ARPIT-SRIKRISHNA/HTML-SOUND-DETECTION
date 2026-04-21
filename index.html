@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Voice Monitor</title>
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            margin-top: 60px;
+            background: #7a0606;
+        }
+        button {
+            padding: 12px 20px;
+            margin: 10px;
+            font-size: 18px;
+        }
+        #status, #timer, #speech {
+            margin-top: 15px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>AI Voice Detection App</h1>
+
+<button onclick="startMonitoring()">Start</button>
+<button onclick="stopMonitoring()">Stop</button>
+
+<div id="status">Status: Stopped</div>
+<div id="timer">Silence Timer: 0 sec</div>
+<div id="speech">Last Speech: None</div>
+
+<script>
+let recognition;
+let running = false;
+let lastSpeechTime = 0;
+
+const TIMEOUT = 39;
+
+function startMonitoring() {
+    if (running) return;
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        alert("Your browser does not support Speech Recognition. Use Chrome.");
+        return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onstart = () => {
+        running = true;
+        lastSpeechTime = Date.now();
+        document.getElementById("status").innerText = "Status: Listening...";
+        monitorSilence();
+    };
+
+    recognition.onresult = (event) => {
+        let transcript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+        }
+
+        if (transcript.trim().length > 0) {
+            lastSpeechTime = Date.now();
+            document.getElementById("speech").innerText =
+                "Last Speech: " + transcript;
+        }
+    };
+
+    recognition.onerror = (event) => {
+        console.log("Error:", event.error);
+    };
+
+    recognition.onend = () => {
+        if (running) {
+            recognition.start(); // restart automatically
+        }
+    };
+
+    recognition.start();
+}
+
+function stopMonitoring() {
+    running = false;
+    if (recognition) recognition.stop();
+    document.getElementById("status").innerText = "Status: Stopped";
+}
+
+function monitorSilence() {
+    if (!running) return;
+
+    let silenceTime = (Date.now() - lastSpeechTime) / 1000;
+
+    document.getElementById("timer").innerText =
+        "Silence Timer: " + silenceTime.toFixed(1) + " sec";
+
+    if (silenceTime > TIMEOUT) {
+        beep();
+        lastSpeechTime = Date.now();
+    }
+
+    setTimeout(monitorSilence, 200);
+}
+
+function beep() {
+    let ctx = new (window.AudioContext || window.webkitAudioContext)();
+    let oscillator = ctx.createOscillator();
+    let gain = ctx.createGain();
+
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+
+    oscillator.frequency.value = 1000;
+    oscillator.start();
+
+    setTimeout(() => oscillator.stop(), 1000);
+}
+</script>
+
+</body>
+</html>
